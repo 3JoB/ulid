@@ -34,7 +34,7 @@ A ULID however:
 This package requires Go modules.
 
 ```shell
-go get github.com/oklog/ulid/v2
+go get github.com/3JoB/ulid
 ```
 
 ## Usage

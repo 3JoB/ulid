@@ -15,23 +15,24 @@ package ulid_test
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"strings"
 	"testing"
 	"testing/iotest"
 	"testing/quick"
 	"time"
 
-	"github.com/oklog/ulid/v2"
+	crand "lukechampine.com/frand"
+	"pgregory.net/rand"
+
+	"github.com/3JoB/ulid"
 )
 
 func ExampleULID() {
 	t := time.Unix(1000000, 0)
-	entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
+	entropy := ulid.Monotonic(rand.New(), 0)
 	fmt.Println(ulid.MustNew(ulid.Timestamp(t), entropy))
 	// Output: 0000XSNJG0MQJHBF4QX1EFD6Y3
 }
@@ -118,8 +119,8 @@ func TestMustParse(t *testing.T) {
 		name string
 		fn   func(string) ulid.ULID
 	}{
-		{"MustParse", ulid.MustParse},
-		{"MustParseStrict", ulid.MustParseStrict},
+		{name: "MustParse", fn: ulid.MustParse},
+		{name: "MustParseStrict", fn: ulid.MustParseStrict},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer func() {
@@ -129,7 +130,6 @@ func TestMustParse(t *testing.T) {
 			}()
 			_ = tc.fn("")
 		})
-
 	}
 }
 
@@ -192,17 +192,16 @@ func TestMarshalingErrors(t *testing.T) {
 		fn   func([]byte) error
 		err  error
 	}{
-		{"UnmarshalBinary", id.UnmarshalBinary, ulid.ErrDataSize},
-		{"UnmarshalText", id.UnmarshalText, ulid.ErrDataSize},
-		{"MarshalBinaryTo", id.MarshalBinaryTo, ulid.ErrBufferSize},
-		{"MarshalTextTo", id.MarshalTextTo, ulid.ErrBufferSize},
+		{name: "UnmarshalBinary", fn: id.UnmarshalBinary, err: ulid.ErrDataSize},
+		{name: "UnmarshalText", fn: id.UnmarshalText, err: ulid.ErrDataSize},
+		{name: "MarshalBinaryTo", fn: id.MarshalBinaryTo, err: ulid.ErrBufferSize},
+		{name: "MarshalTextTo", fn: id.MarshalTextTo, err: ulid.ErrBufferSize},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got, want := tc.fn([]byte{}), tc.err; got != want {
 				t.Errorf("got err %v, want %v", got, want)
 			}
 		})
-
 	}
 }
 
@@ -393,7 +392,6 @@ func TestTime(t *testing.T) {
 		t.Errorf("difference between original and recovered time (%d) greater"+
 			"than a millisecond", diff)
 	}
-
 }
 
 func TestTimestampRoundTrips(t *testing.T) {
@@ -419,7 +417,7 @@ func TestULIDTime(t *testing.T) {
 		t.Errorf("got err %v, want %v", got, want)
 	}
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New()
 	for i := 0; i < 1e6; i++ {
 		ms := uint64(rng.Int63n(int64(maxTime)))
 
@@ -526,14 +524,14 @@ func TestScan(t *testing.T) {
 
 	for _, tc := range []struct {
 		name string
-		in   interface{}
+		in   any
 		out  ulid.ULID
 		err  error
 	}{
-		{"string", id.String(), id, nil},
-		{"bytes", id[:], id, nil},
-		{"nil", nil, ulid.ULID{}, nil},
-		{"other", 44, ulid.ULID{}, ulid.ErrScanValue},
+		{name: "string", in: id.String(), out: id, err: nil},
+		{name: "bytes", in: id[:], out: id, err: nil},
+		{name: "nil", in: nil, out: ulid.ULID{}, err: nil},
+		{name: "other", in: 44, out: ulid.ULID{}, err: ulid.ErrScanValue},
 	} {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -553,13 +551,12 @@ func TestScan(t *testing.T) {
 }
 
 func TestMonotonic(t *testing.T) {
-	now := ulid.Now()
 	for _, e := range []struct {
 		name string
 		mk   func() io.Reader
 	}{
-		{"cryptorand", func() io.Reader { return crand.Reader }},
-		{"mathrand", func() io.Reader { return rand.New(rand.NewSource(int64(now))) }},
+		{name: "cryptorand", mk: func() io.Reader { return crand.Reader }},
+		{name: "mathrand", mk: func() io.Reader { return rand.New() }},
 	} {
 		for _, inc := range []uint64{
 			0,
@@ -621,7 +618,7 @@ func TestMonotonicSafe(t *testing.T) {
 	t.Parallel()
 
 	var (
-		rng  = rand.New(rand.NewSource(time.Now().UnixNano()))
+		rng  = rand.New()
 		safe = &ulid.LockedMonotonicReader{MonotonicReader: ulid.Monotonic(rng, 0)}
 		t0   = ulid.Timestamp(time.Now())
 	)
@@ -655,7 +652,7 @@ func TestMonotonicSafe(t *testing.T) {
 
 func TestULID_Bytes(t *testing.T) {
 	tt := time.Unix(1000000, 0)
-	entropy := ulid.Monotonic(rand.New(rand.NewSource(tt.UnixNano())), 0)
+	entropy := ulid.Monotonic(rand.New(), 0)
 	id := ulid.MustNew(ulid.Timestamp(tt), entropy)
 	bid := id.Bytes()
 	bid[len(bid)-1]++
@@ -680,22 +677,22 @@ func benchmarkMakeULID(b *testing.B, f func(uint64, io.Reader)) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(ulid.ULID{})))
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New()
 
 	for _, tc := range []struct {
 		name       string
 		timestamps []uint64
 		entropy    io.Reader
 	}{
-		{"WithCrypoEntropy", []uint64{123}, crand.Reader},
-		{"WithEntropy", []uint64{123}, rng},
-		{"WithMonotonicEntropy_SameTimestamp_Inc0", []uint64{123}, ulid.Monotonic(rng, 0)},
-		{"WithMonotonicEntropy_DifferentTimestamp_Inc0", []uint64{122, 123}, ulid.Monotonic(rng, 0)},
-		{"WithMonotonicEntropy_SameTimestamp_Inc1", []uint64{123}, ulid.Monotonic(rng, 1)},
-		{"WithMonotonicEntropy_DifferentTimestamp_Inc1", []uint64{122, 123}, ulid.Monotonic(rng, 1)},
-		{"WithCryptoMonotonicEntropy_SameTimestamp_Inc1", []uint64{123}, ulid.Monotonic(crand.Reader, 1)},
-		{"WithCryptoMonotonicEntropy_DifferentTimestamp_Inc1", []uint64{122, 123}, ulid.Monotonic(crand.Reader, 1)},
-		{"WithoutEntropy", []uint64{123}, nil},
+		{name: "WithCrypoEntropy", timestamps: []uint64{123}, entropy: crand.Reader},
+		{name: "WithEntropy", timestamps: []uint64{123}, entropy: rng},
+		{name: "WithMonotonicEntropy_SameTimestamp_Inc0", timestamps: []uint64{123}, entropy: ulid.Monotonic(rng, 0)},
+		{name: "WithMonotonicEntropy_DifferentTimestamp_Inc0", timestamps: []uint64{122, 123}, entropy: ulid.Monotonic(rng, 0)},
+		{name: "WithMonotonicEntropy_SameTimestamp_Inc1", timestamps: []uint64{123}, entropy: ulid.Monotonic(rng, 1)},
+		{name: "WithMonotonicEntropy_DifferentTimestamp_Inc1", timestamps: []uint64{122, 123}, entropy: ulid.Monotonic(rng, 1)},
+		{name: "WithCryptoMonotonicEntropy_SameTimestamp_Inc1", timestamps: []uint64{123}, entropy: ulid.Monotonic(crand.Reader, 1)},
+		{name: "WithCryptoMonotonicEntropy_DifferentTimestamp_Inc1", timestamps: []uint64{122, 123}, entropy: ulid.Monotonic(crand.Reader, 1)},
+		{name: "WithoutEntropy", timestamps: []uint64{123}, entropy: nil},
 	} {
 		tc := tc
 		b.Run(tc.name, func(b *testing.B) {
@@ -734,7 +731,7 @@ func BenchmarkMustParse(b *testing.B) {
 }
 
 func BenchmarkString(b *testing.B) {
-	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	entropy := rand.New()
 	id := ulid.MustNew(123456, entropy)
 	b.SetBytes(int64(len(id)))
 	b.ResetTimer()
@@ -744,7 +741,7 @@ func BenchmarkString(b *testing.B) {
 }
 
 func BenchmarkMarshal(b *testing.B) {
-	entropy := rand.New(rand.NewSource(time.Now().UnixNano()))
+	entropy := rand.New()
 	buf := make([]byte, ulid.EncodedSize)
 	id := ulid.MustNew(123456, entropy)
 

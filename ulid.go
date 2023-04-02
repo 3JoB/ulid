@@ -22,9 +22,10 @@ import (
 	"io"
 	"math"
 	"math/bits"
-	"math/rand"
 	"sync"
 	"time"
+
+	"pgregory.net/rand"
 )
 
 /*
@@ -130,7 +131,7 @@ func MustNewDefault(t time.Time) ULID {
 }
 
 var defaultEntropy = func() io.Reader {
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng := rand.New()
 	return &LockedMonotonicReader{MonotonicReader: Monotonic(rng, 0)}
 }()
 
@@ -485,7 +486,7 @@ func (id ULID) Compare(other ULID) int {
 
 // Scan implements the sql.Scanner interface. It supports scanning
 // a string or byte slice.
-func (id *ULID) Scan(src interface{}) error {
+func (id *ULID) Scan(src any) error {
 	switch x := src.(type) {
 	case nil:
 		return nil

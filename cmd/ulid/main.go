@@ -1,15 +1,16 @@
 package main
 
 import (
-	cryptorand "crypto/rand"
 	"fmt"
-	mathrand "math/rand"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/oklog/ulid/v2"
 	getopt "github.com/pborman/getopt/v2"
+	cryptorand "lukechampine.com/frand"
+	mathrand "pgregory.net/rand"
+
+	"github.com/3JoB/ulid"
 )
 
 const (
@@ -63,17 +64,15 @@ func main() {
 }
 
 func generate(quick, zero bool) {
-	entropy := cryptorand.Reader
+	var id ulid.ULID
+	var err error
 	if quick {
-		seed := time.Now().UnixNano()
-		source := mathrand.NewSource(seed)
-		entropy = mathrand.New(source)
+		id, err = ulid.New(ulid.Timestamp(time.Now()), mathrand.New())
+	} else if zero {
+		id, err = ulid.New(ulid.Timestamp(time.Now()), zeroReader{})
+	} else {
+		id, err = ulid.New(ulid.Timestamp(time.Now()), cryptorand.New())
 	}
-	if zero {
-		entropy = zeroReader{}
-	}
-
-	id, err := ulid.New(ulid.Timestamp(time.Now()), entropy)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
