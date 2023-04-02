@@ -24,6 +24,7 @@ import (
 	"testing/quick"
 	"time"
 
+	"github.com/3JoB/unsafeConvert"
 	crand "lukechampine.com/frand"
 	"pgregory.net/rand"
 
@@ -323,7 +324,7 @@ func TestParseRobustness(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if _, err := ulid.Parse(string(tc)); err != nil {
+		if _, err := ulid.Parse(unsafeConvert.StringReflect(tc)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -781,7 +782,7 @@ func BenchmarkMarshal(b *testing.B) {
 func BenchmarkUnmarshal(b *testing.B) {
 	var id ulid.ULID
 	s := "0000XSNJG0MQJHBF4QX1EFD6Y3"
-	txt := []byte(s)
+	txt := unsafeConvert.BytesReflect(s)
 	bin, _ := ulid.MustParse(s).MarshalBinary()
 
 	b.Run("Text", func(b *testing.B) {
@@ -847,7 +848,7 @@ func BenchmarkEntropy(b *testing.B) {
 
 func BenchmarkSetEntropy(b *testing.B) {
 	var id ulid.ULID
-	e := []byte("ABCDEFGHIJKLMNOP")
+	e := unsafeConvert.BytesReflect("ABCDEFGHIJKLMNOP")
 	b.SetBytes(10)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

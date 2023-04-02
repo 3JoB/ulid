@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/3JoB/unsafeConvert"
 	"pgregory.net/rand"
 )
 
@@ -156,7 +157,7 @@ func Make() (id ULID) {
 // ULID's length. Invalid encodings produce undefined ULIDs. For a version that
 // returns an error instead, see ParseStrict.
 func Parse(ulid string) (id ULID, err error) {
-	return id, parse([]byte(ulid), false, &id)
+	return id, parse(unsafeConvert.BytesReflect(ulid), false, &id)
 }
 
 // ParseStrict parses an encoded ULID, returning an error in case of failure.
@@ -167,7 +168,7 @@ func Parse(ulid string) (id ULID, err error) {
 // ErrDataSize is returned if the len(ulid) is different from an encoded
 // ULID's length. Invalid encodings return ErrInvalidCharacters.
 func ParseStrict(ulid string) (id ULID, err error) {
-	return id, parse([]byte(ulid), true, &id)
+	return id, parse(unsafeConvert.BytesReflect(ulid), true, &id)
 }
 
 func parse(v []byte, strict bool, id *ULID) error {
@@ -274,7 +275,7 @@ func (id ULID) Bytes() []byte {
 func (id ULID) String() string {
 	ulid := make([]byte, EncodedSize)
 	_ = id.MarshalTextTo(ulid)
-	return string(ulid)
+	return unsafeConvert.StringReflect(ulid)
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface by
@@ -491,7 +492,7 @@ func (id *ULID) Scan(src any) error {
 	case nil:
 		return nil
 	case string:
-		return id.UnmarshalText([]byte(x))
+		return id.UnmarshalText(unsafeConvert.BytesReflect(x))
 	case []byte:
 		return id.UnmarshalBinary(x)
 	}
