@@ -439,9 +439,7 @@ func Timestamp(t time.Time) uint64 {
 // Time converts Unix milliseconds in the format
 // returned by the Timestamp function to a time.Time.
 func Time(ms uint64) time.Time {
-	s := int64(ms / 1e3)
-	ns := int64((ms % 1e3) * 1e6)
-	return time.Unix(s, ns)
+	return time.Unix(int64(ms/1e3), int64((ms%1e3)*1e6))
 }
 
 // SetTime sets the time component of the ULID to the given Unix time
@@ -581,11 +579,10 @@ type LockedMonotonicReader struct {
 }
 
 // MonotonicRead synchronizes calls to the wrapped MonotonicReader.
-func (r *LockedMonotonicReader) MonotonicRead(ms uint64, p []byte) (err error) {
+func (r *LockedMonotonicReader) MonotonicRead(ms uint64, p []byte) error {
 	r.mu.Lock()
-	err = r.MonotonicReader.MonotonicRead(ms, p)
-	r.mu.Unlock()
-	return err
+	defer r.mu.Unlock()
+	return r.MonotonicReader.MonotonicRead(ms, p)
 }
 
 // MonotonicEntropy is an opaque type that provides monotonic entropy.
