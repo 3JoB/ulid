@@ -3,7 +3,7 @@ module github.com/3JoB/ulid
 go 1.20
 
 require (
-	github.com/3JoB/unsafeConvert v1.3.0
+	github.com/3JoB/unsafeConvert v1.5.0
 	github.com/pborman/getopt/v2 v2.1.0
 	lukechampine.com/frand v1.4.2
 	pgregory.net/rand v1.0.2
